@@ -1,144 +1,113 @@
 
-import React, { useState, useEffect } from "react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-
-export default function InventoryApp() {
-  const [items, setItems] = useState([]);
-  const [name, setName] = useState("");
-  const [qty, setQty] = useState("");
-  const [confirmId, setConfirmId] = useState(null);
-
-
-  // Load from localStorage
-  useEffect(() => {
-    const saved = localStorage.getItem("inventory");
-    if (saved) setItems(JSON.parse(saved));
-  }, []);
-
-  // Save to localStorage
-  useEffect(() => {
-    localStorage.setItem("inventory", JSON.stringify(items));
-  }, [items]);
-
-  const addProduct = () => {
-    if (!name) return;
-    const newItem = {
-      id: Date.now(),
-      name,
-      quantity: parseInt(qty) || 0,
-    };
-    setItems([...items, newItem]);
-    setName("");
-    setQty("");
-  };
-
-  const removeProduct = (id) => {
-    // iPhone-style slight vibration
-    if (navigator.vibrate) navigator.vibrate(50);
-
-
-    setItems(items.filter((i) => i.id !== id));
-    setConfirmId(null);
-  };
-
-  const changeQty = (id, amount) => {
-    setItems(
-      items.map((i) =>
-        i.id === id ? { ...i, quantity: i.quantity + amount } : i
-      )
-    );
-  };
-
-  const selectedItem = items.find((i) => i.id === confirmId);
-
-
-  return (
-    <div className="p-4 max-w-md mx-auto">
-      <h1 className="text-2xl font-bold mb-4">Inventory Manager</h1>
-
-      <Card className="mb-4">
-        <CardContent className="p-4 space-y-2">
-          <Input
-            placeholder="Product name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-          <Input
-            placeholder="Starting quantity"
-            type="number"
-            value={qty}
-            onChange={(e) => setQty(e.target.value)}
-          />
-          <Button onClick={addProduct} className="w-full rounded-xl">
-            Add Product
-          </Button>
-        </CardContent>
-      </Card>
-
-      <div className="space-y-3">
-        {items.map((item) => (
-          <Card key={item.id} className="rounded-2xl shadow-sm">
-            <CardContent className="p-4 flex flex-col gap-2">
-              <div className="font-medium text-lg">{item.name}</div>
-              <div className="text-gray-500">Quantity: {item.quantity}</div>
-              <div className="flex gap-2">
-                <Button className="rounded-xl" onClick={() => changeQty(item.id, 1)}>+1</Button>
-                <Button className="rounded-xl" onClick={() => changeQty(item.id, -1)}>-1</Button>
-                <Button
-                  className="rounded-xl"
-                  variant="destructive"
-                  onClick={() => setConfirmId(item.id)}
-                >
-                  Delete
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {/* iPhone-style Bottom Sheet */}
-      {confirmId && (
-        <div
-          className="fixed inset-0 bg-black/40 flex items-end justify-center z-50"
-          onClick={() => setConfirmId(null)}
-        >
-          <div
-            className="bg-white w-full max-w-md rounded-t-3xl p-5 animate-slideUp"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="w-12 h-1.5 bg-gray-300 rounded-full mx-auto mb-4"></div>
-
-
-            <h2 className="text-center text-lg font-semibold mb-2">
-              Delete {selectedItem?.name}?
-            </h2>
-
-
-            <p className="text-center text-sm text-gray-500 mb-5">
-              This action cannot be undone.
-            </p>
-
-            <div className="flex flex-col gap-3">
-              <Button
-                className="w-full bg-red-500 hover:bg-red-600 text-white rounded-xl py-3"
-                onClick={() => removeProduct(confirmId)}
-              >
-                Delete
-              </Button>
-              <Button
-                className="w-full rounded-xl py-3"
-                variant="outline"
-                onClick={() => setConfirmId(null)}
-              >
-                Cancel
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inventory Manager</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; margin: 0; background: #f2f2f7; }
+    .container { max-width: 500px; margin: auto; padding: 16px; }
+    h1 { font-size: 24px; margin-bottom: 16px; }
+    input, button { width: 100%; padding: 12px; margin: 6px 0; font-size: 16px; border-radius: 12px; }
+    input { border: 1px solid #ccc; }
+    button { border: none; cursor: pointer; }
+    .primary { background: #007aff; color: white; }
+    .card { background: white; padding: 16px; margin-top: 12px; border-radius: 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+    .row { display: flex; gap: 8px; }
+    .danger { background: #ff3b30; color: white; }
+    /* Bottom sheet */
+    .overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+      display: flex; align-items: flex-end; justify-content: center;
+    }
+    .sheet {
+      background: white; width: 100%; max-width: 500px;
+      border-radius: 20px 20px 0 0; padding: 20px;
+      animation: slideUp 0.25s ease;
+    }
+    @keyframes slideUp {
+      from { transform: translateY(100%); }
+      to { transform: translateY(0); }
+    }
+    .handle { width: 40px; height: 5px; background: #ccc; border-radius: 10px; margin: 0 auto 10px; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>Inventory Manager</h1>
+  <input id="name" placeholder="Product name">
+  <input id="qty" type="number" placeholder="Starting quantity">
+  <button class="primary" onclick="addProduct()">Add Product</button>
+  <div id="list"></div>
+</div>
+<div id="modal" style="display:none"></div>
+<script>
+let items = JSON.parse(localStorage.getItem("inventory") || "[]");
+let confirmId = null;
+function save() {
+  localStorage.setItem("inventory", JSON.stringify(items));
+  render();
 }
+function addProduct() {
+  const name = document.getElementById("name").value;
+  const qty = parseInt(document.getElementById("qty").value) || 0;
+  if (!name) return;
+  items.push({ id: Date.now(), name, quantity: qty });
+  document.getElementById("name").value = "";
+  document.getElementById("qty").value = "";
+  save();
+}
+function changeQty(id, amount) {
+  items = items.map(i => i.id === id ? { ...i, quantity: i.quantity + amount } : i);
+  save();
+}
+function askDelete(id) {
+  confirmId = id;
+  const item = items.find(i => i.id === id);
+  document.getElementById("modal").innerHTML = `
+    <div class="overlay" onclick="closeModal()">
+      <div class="sheet" onclick="event.stopPropagation()">
+        <div class="handle"></div>
+        <h3 style="text-align:center">Delete ${item.name}?</h3>
+        <p style="text-align:center;color:#666">This cannot be undone.</p>
+        <button class="danger" onclick="removeProduct()">Delete</button>
+        <button onclick="closeModal()">Cancel</button>
+      </div>
+    </div>
+  `;
+  document.getElementById("modal").style.display = "block";
+}
+function removeProduct() {
+  if (navigator.vibrate) navigator.vibrate(50);
+  items = items.filter(i => i.id !== confirmId);
+  confirmId = null;
+  closeModal();
+  save();
+}
+function closeModal() {
+  document.getElementById("modal").style.display = "none";
+}
+function render() {
+  const list = document.getElementById("list");
+  list.innerHTML = "";
+  items.forEach(item => {
+    const div = document.createElement("div");
+    div.className = "card";
+    div.innerHTML = `
+      <div style="font-weight:600;font-size:18px">${item.name}</div>
+      <div style="color:#666">Quantity: ${item.quantity}</div>
+      <div class="row">
+        <button onclick="changeQty(${item.id},1)">+1</button>
+        <button onclick="changeQty(${item.id},-1)">-1</button>
+        <button class="danger" onclick="askDelete(${item.id})">Delete</button>
+      </div>
+    `;
+
+
+    list.appendChild(div);
+  });
+}
+
+render();
+</script>
+</body>
