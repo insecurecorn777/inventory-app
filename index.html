@@ -6,7 +6,7 @@
   <title>Inventory Manager</title>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; margin: 0; background: #f2f2f7; }
-    .container { max-width: 500px; margin: auto; padding: 16px; }
+    .container { max-width: 500px; margin: auto; padding: 16px; padding-bottom: 100px; }
     h1 { font-size: 24px; margin-bottom: 16px; }
     input, button { width: 100%; padding: 12px; margin: 6px 0; font-size: 16px; border-radius: 12px; }
     input { border: 1px solid #ccc; }
@@ -15,52 +15,80 @@
     .card { background: white; padding: 16px; margin-top: 12px; border-radius: 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
     .row { display: flex; gap: 8px; }
     .danger { background: #ff3b30; color: white; }
-    /* Bottom sheet */
-    .overlay {
-      position: fixed; inset: 0; background: rgba(0,0,0,0.4);
-      display: flex; align-items: flex-end; justify-content: center;
+
+    .fab {
+      position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+      width: calc(100% - 32px); max-width: 500px;
+      background: #007aff; color: white; border-radius: 16px; padding: 14px; font-size: 18px;
+      box-shadow: 0 6px 16px rgba(0,0,0,0.15);
     }
-    .sheet {
-      background: white; width: 100%; max-width: 500px;
-      border-radius: 20px 20px 0 0; padding: 20px;
-      animation: slideUp 0.25s ease;
-    }
-    @keyframes slideUp {
-      from { transform: translateY(100%); }
-      to { transform: translateY(0); }
-    }
+
+    .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: flex-end; justify-content: center; }
+    .sheet { background: white; width: 100%; max-width: 500px; border-radius: 20px 20px 0 0; padding: 20px; animation: slideUp 0.25s ease; }
+    @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
     .handle { width: 40px; height: 5px; background: #ccc; border-radius: 10px; margin: 0 auto 10px; }
   </style>
 </head>
 <body>
+
 <div class="container">
   <h1>Inventory Manager</h1>
-  <input id="name" placeholder="Product name">
-  <input id="qty" type="number" placeholder="Starting quantity">
-  <button class="primary" onclick="addProduct()">Add Product</button>
   <div id="list"></div>
 </div>
+
+<button class="fab" onclick="openAddModal()">+ Add Product</button>
+
 <div id="modal" style="display:none"></div>
+
 <script>
 let items = JSON.parse(localStorage.getItem("inventory") || "[]");
 let confirmId = null;
-function save() {
-  localStorage.setItem("inventory", JSON.stringify(items));
-  render();
+let editId = null;
+function save() { localStorage.setItem("inventory", JSON.stringify(items)); render(); }
+function openAddModal() {
+  editId = null;
+  document.getElementById("modal").innerHTML = modalTemplate("Add Product", "", "", "Add", "addProductFromModal()");
+  document.getElementById("modal").style.display = "block";
 }
-function addProduct() {
-  const name = document.getElementById("name").value;
-  const qty = parseInt(document.getElementById("qty").value) || 0;
+
+function openEditModal(id) {
+  const item = items.find(i => i.id === id);
+  editId = id;
+  document.getElementById("modal").innerHTML = modalTemplate("Edit Product", item.name, item.quantity, "Save", "saveEdit()");
+  document.getElementById("modal").style.display = "block";
+}
+function modalTemplate(title, name, qty, buttonLabel, action) {
+  return `
+    <div class="overlay" onclick="closeModal()">
+      <div class="sheet" onclick="event.stopPropagation()">
+        <div class="handle"></div>
+        <h3 style="text-align:center">${title}</h3>
+        <input id="modalName" value="${name}" placeholder="Product name">
+        <input id="modalQty" type="number" value="${qty}" placeholder="Starting quantity">
+        <button class="primary" onclick="${action}">${buttonLabel}</button>
+        <button onclick="closeModal()">Cancel</button>
+      </div>
+    </div>
+  `;
+}
+
+function addProductFromModal() {
+  const name = document.getElementById("modalName").value;
+  const qty = parseInt(document.getElementById("modalQty").value) || 0;
   if (!name) return;
   items.push({ id: Date.now(), name, quantity: qty });
-  document.getElementById("name").value = "";
-  document.getElementById("qty").value = "";
-  save();
+  closeModal(); save();
 }
-function changeQty(id, amount) {
-  items = items.map(i => i.id === id ? { ...i, quantity: i.quantity + amount } : i);
-  save();
+
+function saveEdit() {
+  const name = document.getElementById("modalName").value;
+  const qty = parseInt(document.getElementById("modalQty").value) || 0;
+  if (!name) return;
+  items = items.map(i => i.id === editId ? { ...i, name, quantity: qty } : i);
+  closeModal(); save();
 }
+
+function changeQty(id, amount) { items = items.map(i => i.id === id ? { ...i, quantity: i.quantity + amount } : i); save(); }
 function askDelete(id) {
   confirmId = id;
   const item = items.find(i => i.id === id);
@@ -77,37 +105,41 @@ function askDelete(id) {
   `;
   document.getElementById("modal").style.display = "block";
 }
+
 function removeProduct() {
   if (navigator.vibrate) navigator.vibrate(50);
   items = items.filter(i => i.id !== confirmId);
   confirmId = null;
-  closeModal();
-  save();
+  closeModal(); save();
 }
-function closeModal() {
-  document.getElementById("modal").style.display = "none";
-}
+
+function closeModal() { document.getElementById("modal").style.display = "none"; }
 function render() {
   const list = document.getElementById("list");
   list.innerHTML = "";
   items.forEach(item => {
     const div = document.createElement("div");
     div.className = "card";
-    div.innerHTML = `
+        div.innerHTML = `
       <div style="font-weight:600;font-size:18px">${item.name}</div>
       <div style="color:#666">Quantity: ${item.quantity}</div>
-      <div class="row">
-        <button onclick="changeQty(${item.id},1)">+1</button>
-        <button onclick="changeQty(${item.id},-1)">-1</button>
-        <button class="danger" onclick="askDelete(${item.id})">Delete</button>
+      <div style="margin-top:10px; display:flex; flex-direction:column; gap:8px">
+        <div class="row">
+          <button style="flex:1; background:#e5e5ea; font-weight:600" onclick="changeQty(${item.id},1)">+1</button>
+          <button style="flex:1; background:#e5e5ea; font-weight:600" onclick="changeQty(${item.id},-1)">-1</button>
+        </div>
+        <div class="row">
+          <button style="flex:1; background:#f2f2f7; font-weight:500" onclick="openEditModal(${item.id})">✏️ Edit</button>
+          <button class="danger" style="flex:1; font-weight:500" onclick="askDelete(${item.id})">Delete</button>
+        </div>
       </div>
     `;
-
-
     list.appendChild(div);
   });
 }
 
 render();
 </script>
+
 </body>
+</html>
